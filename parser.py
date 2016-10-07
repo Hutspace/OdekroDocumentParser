@@ -134,7 +134,7 @@ class DocumentParser(object):
             (r'\s*(\[\d+\])\s*', r"\n\n\1\n\n"),
 
             # Add breaks around anything that is all in CAPITALS
-            (r'^([^a-z]+?)$', r"\n\n\1\n\n"),
+            # (r'^([^a-z]+?)$', r"\n\n\1\n\n"),
             # not sure why the '+?' can't just be '+' - if it is just '+' the
             # newline gets included too despite the re.M. Pah!
 
