@@ -50,7 +50,7 @@ class DocumentParser(object):
     @classmethod
     def setup_patterns(cls):
         cls.HEADER_PATTERNS = cls.BASE_HEADER_PATTERNS + cls.CUSTOM_HEADER_PATTERNS
-        cls.PATTERNS = cls.BASE_PATTERNS + cls.CUSTOM_PATTERNS
+        cls.PATTERNS = cls.CUSTOM_PATTERNS + cls.BASE_PATTERNS
 
     def parse(self):
         self.setup_patterns()
@@ -73,6 +73,7 @@ class DocumentParser(object):
 
     @classmethod
     def scan_line(cls, line):
+        line = line.encode('UTF-8')
         if not line.strip():
             return (cls.BLANK, '\n', None)
         for kind, pattern in cls.PATTERNS:
