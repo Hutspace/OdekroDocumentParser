@@ -41,7 +41,6 @@ class AttendanceParser(DocumentParser):
 
         while len(lines):
             thekind, line, match = lines.pop(0)
-            line = line.encode("utf-8")
             if (thekind == cls.DATE):
                 timestamp = date(int(match.group(4)),
                                  cls.MONTHS[match.group(3).lower()[:3]],
@@ -62,9 +61,9 @@ class AttendanceParser(DocumentParser):
                     constituency = line[line.rfind('('):]
                     name_slug = re.sub('[,.\(\)\[\]]', ' ', member).split()
                     members.append(dict(mp=member,
-                                    constituency=constituency,
-                                    name_slug=name_slug,
-                                    timestamp=timestamp))
+                                        constituency=constituency,
+                                        name_slug=name_slug,
+                                        timestamp=timestamp))
 
                 if (thekind == cls.LINE or thekind == cls.BLANK or thekind == cls.PAGE_HEADER):
                     continue
