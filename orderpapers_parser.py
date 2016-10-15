@@ -7,89 +7,34 @@ from parser import DocumentParser
 
 class OrderPaperParser(DocumentParser):
     SELECTION_MARKER = 'NOTICE OF COMMITTEE SITTINGS'
-
     COMMITTEE_NAME_FORMAT = r"[A-Z]* COMMITTEE" # eg. BUSINESS COMMITTEE
-    COMMITTEE_DATE_FORMAT = r"Date: ^[A-Za-z0-9,]* Time" # eg. Date:   Thursday, 6th June 2013
-    COMMITTEE_TIME_FORMAT = r'Time:  ^[A-Za-z,0-9\-\s\/]*' #eg. Time:   9:00 a.m.
-    COMMITTEE_VENUE_FORMAT = r'Venue:  ^[A-Za-z,0-9\-\s\/]*' #eg. Venue:  Committee Room 6
-    COMMITTEE_AGENDA_FORMAT = r'Agenda: ^[A-Za-z,0-9\-\s\/]*' #eg. Agenda: To determine .....
-
-
-
-    ROLLCALL_PRESENT = 'present'
-    ROLLCALL_ABSENT = 'absent'
-    ROLLCALL_ABSENTP = 'absent with permission'
-    ROLLCALL_PERSON = 'rollcall person'
-
-    VP_PRESENT = r'^\s*[0-9.]*\s*The following Hon. Members were present:\s*$'
-    VP_ABSENT = r'^\s*[0-9.]*\s*The following Hon. Members were absent:\s*$'
-    VP_ABSENT_W_PERM = r'^\s*[0-9.]*\s*The following Hon. Members were absent with permission:\s*$'
-    VP_CONSTITUENCY = r'\([A-Za-z,\-\s\/]*\)'
-    VP_MEMBER = r'^\s*[0-9.]*\s*([^0-9\*:;{}"]{2,80})\s*$'
-    VP_MEMBER2 = r'^\s*([^0-9\*:;{}"]{2,80})\s*(%s)$' % VP_CONSTITUENCY
-
-    CUSTOM_PATTERNS = (
-        (ROLLCALL_PRESENT, VP_PRESENT),
-        (ROLLCALL_ABSENT, VP_ABSENT),
-        (ROLLCALL_ABSENTP, VP_ABSENT_W_PERM),
-        (ROLLCALL_PERSON, VP_MEMBER2)
-    )
-
-    NORMALIZATIONS = [
-        (r'\n\n(%s)' % VP_CONSTITUENCY, r'\1')
-    ]
 
     def __init__(self, content):
         super(OrderPaperParser, self).__init__(content)
 
     @classmethod
-    def parse_rollcall(cls, kind, lines):
-        thekind, line, match = None, None, None
-        members = []
-        valid = False
-        timestamp = None
+    def format_committee_date(self, date_passed):
+        date_actual= date_passed.split(',')[1].strip()
+        date_parts = date_actual.split(' ')
 
-        while len(lines):
-            thekind, line, match = lines.pop(0)
-            line = line.encode("utf-8")
-            if (thekind == cls.DATE):
-                timestamp = date(int(match.group(4)),
-                                 cls.MONTHS[match.group(3).lower()[:3]],
-                                 int(match.group(2)))
-                timestamp = datetime.combine(timestamp, datetime.min.time())
+        if len(date_parts)>=3:
+            day_date =  date_parts[0].strip()
+            month_date = date_parts[1]
+            year_date = date_parts[2]
+            day_date = day_date[:-2]
+            day_date = "O%s" %  day_date if int(day_date) <= 9 else day_date
+            date_full = "%s-%s-%s" % ( day_date, month_date, year_date)             
+        else:
+            day_date =  date_parts[0].strip()
+            month_date = date_parts[1]
+            year_date = datetime.now().year             
+            day_date = day_date[:-2]
+            day_date = "O%s" %  day_date if int(day_date) <= 9 else day_date
+            date_full = "%s-%s" % ( day_date, month_date) 
 
-            if not valid and thekind != kind:
-                continue
 
-            if not valid and thekind == kind:
-                # START PARSING SECTION
-                valid = True
-                continue
 
-            if valid:
-                if thekind == cls.ROLLCALL_PERSON:
-                    member = re.sub('[0-9.]', '', line[: line.rfind('(')]).strip()
-                    constituency = line[line.rfind('('):]
-                    name_slug = re.sub('[,.\(\)\[\]]', ' ', member).split()
-                    members.append(dict(mp=member,
-                                    constituency=constituency,
-                                    name_slug=name_slug,
-                                    timestamp=timestamp))
-
-                if (thekind == cls.LINE or thekind == cls.BLANK or thekind == cls.PAGE_HEADER):
-                    continue
-
-                if thekind != cls.BLANK and thekind != cls.ROLLCALL_PERSON:
-                    # DONE PARSING SECTION
-                    valid = False
-                    break
-
-            else:
-                # fallout
-                pass
-
-        return timestamp, members
-
+        return date_full    
 
     @classmethod
     def parse_committee_info(cls, lines):
@@ -110,8 +55,6 @@ class OrderPaperParser(DocumentParser):
             if (thekind == cls.BLANK ):
                 continue
 
-            print "line content: %s " % line_content 
-
             if (line_content == cls.SELECTION_MARKER):
                 # START PARSING SECTION
                 valid = True
@@ -125,20 +68,19 @@ class OrderPaperParser(DocumentParser):
 
                 if matchObjectForCommitteeName:   
                     committee_name = line_content.split(' ',1)[0]
-                    print "name... %s " % committee_name
 
 
                 if matchObjectForCommitteeDateTimeVenueAndAgenda:
                     committee_date_part = line_content.split('Time',1)[0]    
-                    committee_date =   committee_date_part.split('Date:',1)[1]             
+                    committee_date =   committee_date_part.split('Date:',1)[1]
+                    committee_date = cls.format_committee_date(committee_date)             
 
                     committee_time_part_array = line_content.split('Venue',1)
-                    if len(committee_time_part_array)>1:
-                        print committee_time_part_array
+                    if len(committee_time_part_array)>=1:
                         committee_time_part = committee_time_part_array[0]
                         committee_time_part =  committee_time_part.split('Time:',1)
-                        if len(committee_time_part)>1:
-                            committee_time = committee_time_part[0]
+                        if len(committee_time_part)>=2:
+                            committee_time = committee_time_part[1].strip()
                         else:
                             committee_time = ''
 
@@ -146,12 +88,11 @@ class OrderPaperParser(DocumentParser):
                     committee_venue_part_array = line_content.split('Agenda:',1)
                     len_committee_venue = len(committee_venue_part_array)
                     if len_committee_venue > 1:
-                        print len_committee_venue
                         committee_venue_part_array1 = committee_venue_part_array[0]
                         committee_venue_array  = committee_venue_part_array1.split('Venue:',1)
 
                         if len(committee_venue_array)>1:
-                            committee_venue = committee_venue_array[1]
+                            committee_venue = committee_venue_array[1].strip()
                         else:
                             committee_venue = ''
 
@@ -161,7 +102,7 @@ class OrderPaperParser(DocumentParser):
                     committee_agenda_array = line_content.split('Agenda:',1)
                     len_of_committee_agenda = len(committee_agenda_array) 
                     if len_of_committee_agenda > 1:
-                        committee_agenda = committee_agenda_array[1]
+                        committee_agenda = committee_agenda_array[1].replace(',','')
                     else:
                         committee_agenda = ''
 
@@ -173,6 +114,10 @@ class OrderPaperParser(DocumentParser):
                 # fallout
                 pass
 
+
+            if len(comittees)==0:
+                continue 
+
         if committee_name!='' and  committee_date!='':
             comittees.append(dict(committee_name=committee_name,
                             date=committee_date,
@@ -180,7 +125,6 @@ class OrderPaperParser(DocumentParser):
                             agenda=committee_agenda,
                             venue=committee_venue 
                             ))
-
 
         return comittees
 
@@ -190,7 +134,9 @@ class OrderPaperParser(DocumentParser):
         ###committee name 
         committee_all = cls.parse_committee_info( list(lines) )
         for committee in committee_all:
-            entries.append(committee)
+
+            if len(committee)>2:
+                entries.append(committee)
 
         return entries
 
