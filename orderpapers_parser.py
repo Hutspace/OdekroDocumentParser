@@ -32,8 +32,6 @@ class OrderPaperParser(DocumentParser):
             day_date = "O%s" %  day_date if int(day_date) <= 9 else day_date
             date_full = "%s-%s" % ( day_date, month_date) 
 
-
-
         return date_full    
 
     @classmethod
@@ -41,7 +39,6 @@ class OrderPaperParser(DocumentParser):
         thekind, line, match = None, None, None
         comittees = []
         valid = False
-        timestamp = None
 
         committee_name  = ''
         committee_date = ''
@@ -108,7 +105,6 @@ class OrderPaperParser(DocumentParser):
 
                 if (thekind == cls.LINE or thekind == cls.BLANK or thekind == cls.PAGE_HEADER):
                     continue
-
                                                     
             else:
                 # fallout
