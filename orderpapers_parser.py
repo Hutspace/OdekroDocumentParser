@@ -6,6 +6,16 @@ from parser import DocumentParser
 
 
 class OrderPaperParser(DocumentParser):
+    SELECTION_MARKER = 'NOTICE OF COMMITTEE SITTINGS'
+
+    COMMITTEE_NAME_FORMAT = r"[A-Z]* COMMITTEE" # eg. BUSINESS COMMITTEE
+    COMMITTEE_DATE_FORMAT = r"Date: ^[A-Za-z0-9,]* Time" # eg. Date:   Thursday, 6th June 2013
+    COMMITTEE_TIME_FORMAT = r'Time:  ^[A-Za-z,0-9\-\s\/]*' #eg. Time:   9:00 a.m.
+    COMMITTEE_VENUE_FORMAT = r'Venue:  ^[A-Za-z,0-9\-\s\/]*' #eg. Venue:  Committee Room 6
+    COMMITTEE_AGENDA_FORMAT = r'Agenda: ^[A-Za-z,0-9\-\s\/]*' #eg. Agenda: To determine .....
+
+
+
     ROLLCALL_PRESENT = 'present'
     ROLLCALL_ABSENT = 'absent'
     ROLLCALL_ABSENTP = 'absent with permission'
@@ -73,6 +83,7 @@ class OrderPaperParser(DocumentParser):
                     # DONE PARSING SECTION
                     valid = False
                     break
+
             else:
                 # fallout
                 pass
@@ -87,13 +98,89 @@ class OrderPaperParser(DocumentParser):
         valid = False
         timestamp = None
 
+        committee_name  = ''
+        committee_date = ''
+        committee_time = ''
+
         while len(lines):
             thekind, line, match = lines.pop(0)
-            line = line.encode("utf-8")
-            print "start here "
-            print "line here %s " % line 
-            print "kind here %s " % thekind 
-            print "match here %s " % match 
+            line_content = line.encode("utf-8")
+            line_content = line_content.strip()
+
+            if (thekind == cls.BLANK ):
+                continue
+
+            print "line content: %s " % line_content 
+
+            if (line_content == cls.SELECTION_MARKER):
+                # START PARSING SECTION
+                valid = True
+                continue
+
+
+            if valid:
+
+                matchObjectForCommitteeName = re.match( cls.COMMITTEE_NAME_FORMAT , line_content)
+                matchObjectForCommitteeDateTimeVenueAndAgenda = re.match( r"Date: *" , line_content)
+
+                if matchObjectForCommitteeName:   
+                    committee_name = line_content.split(' ',1)[0]
+                    print "name... %s " % committee_name
+
+
+                if matchObjectForCommitteeDateTimeVenueAndAgenda:
+                    committee_date_part = line_content.split('Time',1)[0]    
+                    committee_date =   committee_date_part.split('Date:',1)[1]             
+
+                    committee_time_part_array = line_content.split('Venue',1)
+                    if len(committee_time_part_array)>1:
+                        print committee_time_part_array
+                        committee_time_part = committee_time_part_array[0]
+                        committee_time_part =  committee_time_part.split('Time:',1)
+                        if len(committee_time_part)>1:
+                            committee_time = committee_time_part[0]
+                        else:
+                            committee_time = ''
+
+
+                    committee_venue_part_array = line_content.split('Agenda:',1)
+                    len_committee_venue = len(committee_venue_part_array)
+                    if len_committee_venue > 1:
+                        print len_committee_venue
+                        committee_venue_part_array1 = committee_venue_part_array[0]
+                        committee_venue_array  = committee_venue_part_array1.split('Venue:',1)
+
+                        if len(committee_venue_array)>1:
+                            committee_venue = committee_venue_array[1]
+                        else:
+                            committee_venue = ''
+
+                    else:
+                        committee_venue = ''
+
+                    committee_agenda_array = line_content.split('Agenda:',1)
+                    len_of_committee_agenda = len(committee_agenda_array) 
+                    if len_of_committee_agenda > 1:
+                        committee_agenda = committee_agenda_array[1]
+                    else:
+                        committee_agenda = ''
+
+                if (thekind == cls.LINE or thekind == cls.BLANK or thekind == cls.PAGE_HEADER):
+                    continue
+
+                                                    
+            else:
+                # fallout
+                pass
+
+        if committee_name!='' and  committee_date!='':
+            comittees.append(dict(committee_name=committee_name,
+                            date=committee_date,
+                            time=committee_time,
+                            agenda=committee_agenda,
+                            venue=committee_venue 
+                            ))
+
 
         return comittees
 
@@ -105,20 +192,6 @@ class OrderPaperParser(DocumentParser):
         for committee in committee_all:
             entries.append(committee)
 
-        """
-        timestamp, present = cls.parse_rollcall(cls.ROLLCALL_PRESENT, list(lines))
-        for member in present:
-            member['status'] = 'P'
-            entries.append(member)          
-        timestamp, absent = cls.parse_rollcall(cls.ROLLCALL_ABSENT, list(lines))
-        for member in absent:
-            member['status'] = 'A'
-            entries.append(member)
-        timestamp, permission = cls.parse_rollcall(cls.ROLLCALL_ABSENTP, list(lines))
-        for member in permission:
-            member['status'] = 'AP'
-            entries.append(member)
-        """    
         return entries
 
 
