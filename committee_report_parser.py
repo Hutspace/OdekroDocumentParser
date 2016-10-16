@@ -20,7 +20,7 @@ class CommitteeReportParser(DocumentParser):
     SELECTION_DESCRIPTION = r"[0-9.]* [A-Z]* DESCRIPTION"
     SELECTION_MARKER_CONCLUSION = r"([0-9.]* CONCLUSION [A-Z]*|[0-9.]* CONCLUSION|[0-9.]* CONCLUSSIONS|[0-9.]* CONCLUSIONS)"
     SELECTION_MARKER_SUBMITTED_BY = r"Respectfully submitted"                    
-    SELECTION_PAGE_NUMBERS = r"(Page [0-9]*|[0-9]{4})"
+    SELECTION_PAGE_NUMBERS = r"(Page [0-9]*|[0-9]{4}|[0-9]{1}|(July|January|June||September|Novermber|December|April|August|October|March|May|Februay) [0-9]{1})"
     SELECTION_MARKER_COMMITTEE_OBSERVATIONS = r"([0-9.]* COMMITTEE OBSERVATIONS|[0-9.]* OBSERVATIONS|[0-9.]* KEY OBSERVATIONS)" 
     SELECTION_JUSTIFICATION=r"([0-9.]* JUSTIFICATION [A-Z ]*|[0-9.]* JUSTIFICATION)"
 
@@ -32,6 +32,17 @@ class CommitteeReportParser(DocumentParser):
     @classmethod
     def reg_check_on_selection_marker(cls,passed_selection_marker,line_content):
         return re.match( passed_selection_marker, line_content)
+
+    @classmethod    
+    def sanitize_line_content(cls,line_content):
+        line_content = line_content.strip()
+        line_content = line_content.replace('$$','').replace('~~','').replace('¥¥','').replace('¥~¥','').replace("...","")
+        line_content = line_content.replace('--','').replace('\\','').replace(';','')
+        line_content = line_content.replace('\xe80','').replace('\xa2','').replace('\xe2','').replace('\x80','')
+        line_content = line_content.replace(',','').replace('--','').replace('==','').replace('::','').replace('__','')
+        line_content = line_content.replace('.:.','')
+        line_content = line_content.strip()
+        return line_content 
 
     @classmethod        
     def truth_value_for_section(cls,matchObjectForDescription,delibrations_next):
@@ -53,23 +64,18 @@ class CommitteeReportParser(DocumentParser):
         observations = recommendations= conclusion= ''
         submitted_by=delibrations  = introduction = justification = terms_and_conditions= ''
         point_1 =''
-        parties = projects=''
+        
 
         valid = introduction_next =False 
         delibrations_next= reference_next = background_next=justification_next=objective_next=False
         terms_and_conditions_next= description_next=observations_next=conclusion_next= submitted_by_next=False
-        parties_next = project_next = False         
+               
 
         while len(lines):
             thekind, line, match = lines.pop(0)
             line_content = line.encode("utf-8")
-            line_content = line_content.strip()
-            line_content = line_content.replace('$$','').replace('~~','').replace('¥¥','').replace('¥~¥','').replace("...","")
-            line_content = line_content.replace('--','').replace('\\','').replace(';','')
-            line_content = line_content.replace('\xe80','').replace('\xa2','').replace('\xe2','').replace('\x80','')
-            line_content = line_content.replace(',','').replace('--','').replace('==','').replace('::','').replace('__','')
+            line_content = cls.sanitize_line_content(line_content)
 
-            line_content = line_content.strip()
 
             #print line_content 
 
@@ -96,74 +102,62 @@ class CommitteeReportParser(DocumentParser):
                 introduction_next,valid = cls.truth_value_for_section(matchObjectForIntroduction,introduction_next)
 
                 delibrations_next= reference_next = background_next=justification_next=objective_next=False
-                terms_and_conditions_next= description_next=observations_next=conclusion_next= submitted_by_next=False                    
-                parties_by_next = projects_next = False                                                                                                 
+                terms_and_conditions_next= description_next=observations_next=conclusion_next= submitted_by_next=False                                                                                                                  
                 continue
             elif matchObjectForDescription:
                 description_next,valid = cls.truth_value_for_section(matchObjectForDescription,description_next)
                 delibrations_next= reference_next = background_next=justification_next=objective_next=False
-                terms_and_conditions_next= introduction_next=observations_next=conclusion_next= submitted_by_next=False    
-                parties_by_next = projects_next = False                                                                                                                 
+                terms_and_conditions_next= introduction_next=observations_next=conclusion_next= submitted_by_next=False                                                                                                                     
                 continue                      
             elif matchObjectForBackground:
                 background_next,valid = cls.truth_value_for_section(matchObjectForBackground,background_next)
                 delibrations_next= reference_next = description_next=justification_next=objective_next=False
-                terms_and_conditions_next= introduction_next=observations_next=conclusion_next= submitted_by_next=False    
-                parties_by_next = projects_next = False                                                                                                                                                 
+                terms_and_conditions_next= introduction_next=observations_next=conclusion_next= submitted_by_next=False                                                                                                                                                   
                 continue
             elif matchObjectForConclusion:
                 conclusion_next,valid = cls.truth_value_for_section(matchObjectForConclusion,conclusion_next)
                 delibrations_next= reference_next = description_next=justification_next=objective_next=False
-                terms_and_conditions_next= introduction_next=observations_next=background_next= submitted_by_next=False  
-                parties_by_next = projects_next = False                                                                                                                                                                   
+                terms_and_conditions_next= introduction_next=observations_next=background_next= submitted_by_next=False                                                                                                                                                                 
                 continue
             elif matchObjectForObjective:
                 objective_next,valid = cls.truth_value_for_section(matchObjectForObjective,objective_next)
                 delibrations_next= reference_next = description_next=justification_next=conclusion_next=False
-                terms_and_conditions_next= introduction_next=observations_next=background_next= submitted_by_next=False 
-                parties_by_next = projects_next = False                                                                                                                                                                    
+                terms_and_conditions_next= introduction_next=observations_next=background_next= submitted_by_next=False                                                                                                                                                                  
                 continue
             elif matchObjectForObservations:
                 observations_next,valid = cls.truth_value_for_section(matchObjectForObservations,observations_next)                
                 delibrations_next= reference_next = description_next=justification_next=conclusion_next=False
-                terms_and_conditions_next= introduction_next=objective_next=background_next= submitted_by_next=False 
-                parties_by_next = projects_next = False                                                                                                                                                                                    
+                terms_and_conditions_next= introduction_next=objective_next=background_next= submitted_by_next=False                                                                                                                                                                                    
                 continue                
             elif matchObjectForDelibrations:
                 delibrations_next,valid = cls.truth_value_for_section(matchObjectForDelibrations,delibrations_next)                                
                 observations_next= reference_next = description_next=justification_next=conclusion_next=False
-                terms_and_conditions_next= introduction_next=objective_next=background_next= submitted_by_next=False  
-                parties_by_next = projects_next = False                                                                                                                                                                                   
+                terms_and_conditions_next= introduction_next=objective_next=background_next= submitted_by_next=False                                                                                                                                                                                    
                 continue   
             elif matchObjectForReference:
                 reference_next,valid = cls.truth_value_for_section(matchObjectForReference,reference_next)                                
                 delibrations_next= observations_next = description_next=justification_next=conclusion_next=False
-                terms_and_conditions_next= introduction_next=objective_next=background_next= submitted_by_next=False 
-                parties_by_next = projects_next = False                                                                                                                                                                                    
+                terms_and_conditions_next= introduction_next=objective_next=background_next= submitted_by_next=False                                                                                                                                                                                    
                 continue      
             elif matchObjectForTermsAndConditions:
                 terms_and_conditions_next,valid = cls.truth_value_for_section(matchObjectForTermsAndConditions,terms_and_conditions_next)                                 
                 delibrations_next= reference_next = description_next=justification_next=conclusion_next=False
-                observations_next= introduction_next=objective_next=background_next= submitted_by_next=False  
-                parties_by_next = projects_next = False                                                                                                                                                                                   
+                observations_next= introduction_next=objective_next=background_next= submitted_by_next=False                                                                                                                                                                                    
                 continue                      
             elif matchObjectForJustification:
                 justification_next,valid = cls.truth_value_for_section(matchObjectForJustification,justification_next)                                
                 delibrations_next= reference_next = description_next=terms_and_conditions_next=conclusion_next=False
-                observations_next= introduction_next=objective_next=background_next= submitted_by_next=False   
-                parties_by_next = projects_next = False                                                                                                                                                                                                  
+                observations_next= introduction_next=objective_next=background_next= submitted_by_next=False                                                                                                                                                                                                 
                 continue
             elif matchObjectForDescription:
                 description_next,valid = cls.truth_value_for_section(matchObjectForDescription,description_next)                                
                 delibrations_next= reference_next = observations_next=justification_next=conclusion_next=False
-                terms_and_conditions_next= introduction_next=objective_next=background_next= submitted_by_next=False  
-                parties_by_next = projects_next = False                                                                                                                                                                                   
+                terms_and_conditions_next= introduction_next=objective_next=background_next= submitted_by_next=False                                                                                                                                                                                   
                 continue           
             elif matchObjectForSubmittedBy:
                 submitted_by_next,valid = cls.truth_value_for_section(matchObjectForSubmittedBy,submitted_by_next)                                
                 delibrations_next= reference_next = description_next=justification_next=conclusion_next=False
-                terms_and_conditions_next= introduction_next=objective_next=background_next= observations_next=False   
-                parties_by_next = projects_next = False                                                                                 
+                terms_and_conditions_next= introduction_next=objective_next=background_next= observations_next=False                                                                                 
                 continue 
             elif matchObjectForPageNumbers:
                 continue        
