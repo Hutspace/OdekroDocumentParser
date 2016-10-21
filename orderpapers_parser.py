@@ -1,7 +1,7 @@
 import sys
 import re
 from datetime import datetime
-from datetime import date
+from datetime import date  
 from parser import DocumentParser
 
 
@@ -25,17 +25,51 @@ class OrderPaperParser(DocumentParser):
             month_date = date_parts[1]
             year_date = date_parts[2]
             day_date = day_date[:-2]
-            day_date = "O%s" %  day_date if int(day_date) <= 9 else day_date
-            date_full = "%s-%s-%s" % ( day_date, month_date, year_date)
+            #day_date = "O%s" %  day_date if int(day_date) <= 9 else day_date
+            if re.match(r"\-", month_date ):
+                date_as_timestamp = "No date"                    
+            else:    
+                if len(day_date)!=0 and len(year_date)!=0 and len(month_date)>2:
+                    date_full = "%s-%s" % ( day_date, year_date) 
+                    date_as_timestamp = datetime.strptime( date_full , "%d-%Y" ).strftime("%Y-%m-%d")                 
+                elif len(day_date)==0 and len(month_date)>2 and len(year_date)==0:                
+                    date_full = "%s-%s-%s" % ( day_date, month_date, year_date)
+                    date_as_timestamp = datetime.strptime( date_full , "%d-%B-%Y" ).strftime("%Y-%m-%d")                 
+                elif len(day_date)==0 and len(month_date)>2 and len(year_date)==0:
+                    date_full = "%s" % ( day_date )                
+                    date_as_timestamp = datetime.strptime( date_full , "%d" ).strftime("%Y-%m-%d")             
+                else:   
+
+                    if len(year_date) > 4:
+                        date_full = "%s-%s" % ( day_date, month_date)    
+                        if len(day_date)==0 and len(month_date)>2: 
+                            date_as_timestamp = datetime.strptime( month_date , "%m" ).strftime("%Y-%m-%d")     
+                        elif len(day_date)!=0 and len(month_date)>2:
+                            date_as_timestamp = datetime.strptime( date_full , "%d-%m" ).strftime("%Y-%m-%d")   
+                        elif re.match( r"[0-9]*[-][0-9]*",day_date):
+                            date_as_timestamp = "No date"                        
+                        else:                
+                            date_as_timestamp = "No date"                   
+                    else: 
+                        date_full = "%s-%s-%s" % ( day_date, month_date, year_date)                    
+                        date_as_timestamp = datetime.strptime( date_full , "%d-%B-%Y" ).strftime("%Y-%m-%d") 
+
         else:
             day_date =  date_parts[0].strip()
             month_date = date_parts[1]
             year_date = datetime.now().year
             day_date = day_date[:-2]
-            day_date = "O%s" %  day_date if int(day_date) <= 9 else day_date
+            #day_date = "O%s" %  day_date if int(day_date) <= 9 else day_date
             date_full = "%s-%s" % ( day_date, month_date)
 
-        return date_full
+            date_as_timestamp = datetime.strptime( date_full , "%d-%B" ).strftime("%Y-%m-%d") 
+
+        if date_as_timestamp!="No date":
+            dt_format = date_as_timestamp.split("-")
+            string_to_use_as_timestamp = "datetime.datetime(%s, %s, %s )"  % ( dt_format[0] , dt_format[1],dt_format[2] )  
+            return  string_to_use_as_timestamp
+        else:
+            return date_as_timestamp
 
     @classmethod
     def parse_committee_info(cls, lines):
@@ -72,6 +106,7 @@ class OrderPaperParser(DocumentParser):
                     committee_date_part = line_content.split('Time',1)[0]
                     committee_date =   committee_date_part.split('Date:',1)[1]
                     committee_date = cls.format_committee_date(committee_date)
+
 
                     committee_time_part_array = line_content.split('Venue',1)
                     if len(committee_time_part_array)>=1:
