@@ -67,7 +67,7 @@ class BusinessStatementParser(DocumentParser):
                         string_in_qtn = string_in_qtn.strip()
 
                         minister_no_of_qtns =  string_in_qtn.rsplit(' ',1)[-1]
-                        minister_title =  string_in_qtn.rsplit(' ',1)[0]    
+                        minister_title =  string_in_qtn.rsplit(' ',1)[0].replace(',','')    
                         
                         questions.append(dict(
                             minister_title= minister_title,
