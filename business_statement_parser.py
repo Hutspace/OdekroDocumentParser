@@ -55,7 +55,9 @@ class BusinessStatementParser(DocumentParser):
                         string_in_qtn =  all_questions_asked[x]
 
                         if last_qtn_asked==x:
-                            string_in_qtn = string_in_qtn.split('Total')[0] 
+                            string_in_qtn_line_content = string_in_qtn
+                            string_in_qtn = string_in_qtn_line_content.split('Total')[0] 
+                            total_questions = string_in_qtn_line_content.split('Total')[1].rsplit(' ')[-1] 
 
                         x=x+1
                         for ch in ['xii','xi','ix','x','viii','vii','vi','iv','v','iii','ii']:
@@ -66,11 +68,12 @@ class BusinessStatementParser(DocumentParser):
 
                         minister_no_of_qtns =  string_in_qtn.rsplit(' ',1)[-1]
                         minister_title =  string_in_qtn.rsplit(' ',1)[0]    
-
+                        
                         questions.append(dict(
                             minister_title= minister_title,
                             minister_no_of_qtns=minister_no_of_qtns                            
                             ))
+                        
 
 
                 if (thekind == cls.LINE or thekind == cls.BLANK or thekind == cls.PAGE_HEADER):
@@ -85,7 +88,13 @@ class BusinessStatementParser(DocumentParser):
                 continue
 
 
-        return questions
+        if len(questions)>0:
+            questions_info.append(dict(
+                question_details=questions,
+                total_questions=total_questions
+                ))        
+
+        return questions_info
 
     @classmethod
     def parse_body(cls, lines):
@@ -98,7 +107,7 @@ class BusinessStatementParser(DocumentParser):
 
 
 def main(argv):
-    print 'minister_title|number_of_questions_asked'
+
     for filename in sys.stdin:
         handle = open(filename.strip(), 'r')
         content = handle.read()
@@ -108,7 +117,13 @@ def main(argv):
         p.parse()
         data = p.output()
         for row in data:
-            print "%s|%s" % (row['minister_title'], row['minister_no_of_qtns'] )
+            print "Total questions : %s" % (row['total_questions'])
+            len_of_question_details = len(row['question_details'])
+            print "minister_title|number of questions"
+            x=y=0
+            while y<len(row['question_details']):
+                print "%s|%s" % ( row['question_details'][y]['minister_title'] , row['question_details'][y]['minister_no_of_qtns'])
+                y=y+1 
 
 
 if __name__ == "__main__":
