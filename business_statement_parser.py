@@ -10,6 +10,7 @@ class BusinessStatementParser(DocumentParser):
             (r'([0-9]*)\s*(st|ST|nd|ND|rd|RD|th|TH)\n', r'\1\2\s')
     ]
     SELECTION_MARKER = 'No. of Question(s)'
+    DATE_MARKER = r".* WEEK ENDING"    
     MINISTER_AND_ROMAN_NUMERAL_FORMAT = r"(i|ii|iii|iv|v|vi|vii|viii|ix|x|xi|xii)[.] Minister"
     CLOSING_MARKER = r"Total Number of Questions"
     
@@ -18,6 +19,16 @@ class BusinessStatementParser(DocumentParser):
         super(BusinessStatementParser, self).__init__(content)
 
 
+    @classmethod
+    def format_question_date(cls, question_date):
+        qd_1 = question_date.strip().split('WEEK ENDING')[1]
+        qd_2 = qd_1.split(',')[1]   
+        qd_3 = qd_2.strip().split('-')
+        date_full = qd_3[0].replace('TH','').replace('ST','').replace('ND','').replace('RD','')
+        date_as_timestamp = datetime.strptime( date_full , "%d %B %Y" ).strftime("%Y-%m-%d") 
+        dt_format = date_as_timestamp.split("-")
+        string_to_use_as_timestamp = "datetime.datetime(%s, %s, %s )"  % ( dt_format[0] , dt_format[1],dt_format[2] )                  
+        return string_to_use_as_timestamp
 
     @classmethod
     def questions_asked(cls, lines):
@@ -26,6 +37,7 @@ class BusinessStatementParser(DocumentParser):
         valid = False
 
         total_questions  = ''
+        question_date = ''
         questions = []
 
         while len(lines):
@@ -34,6 +46,12 @@ class BusinessStatementParser(DocumentParser):
 
             if (thekind == cls.BLANK ):
                 continue
+
+            matchObjectForDate = re.match( cls.DATE_MARKER , line_content)
+            if matchObjectForDate:
+                question_date = cls.format_question_date(  line_content )
+
+
 
             if (line_content == cls.SELECTION_MARKER):
                 # START PARSING SECTION
@@ -91,7 +109,7 @@ class BusinessStatementParser(DocumentParser):
         if len(questions)>0:
             questions_info.append(dict(
                 question_details=questions,
-                total_questions=total_questions
+                question_date=question_date
                 ))        
 
         return questions_info
@@ -117,12 +135,15 @@ def main(argv):
         p.parse()
         data = p.output()
         for row in data:
-            print "Total questions : %s" % (row['total_questions'])
             len_of_question_details = len(row['question_details'])
-            print "minister_title|number of questions"
+            print "Question date | Minister title | Number of questions"
             x=y=0
             while y<len(row['question_details']):
-                print "%s|%s" % ( row['question_details'][y]['minister_title'] , row['question_details'][y]['minister_no_of_qtns'])
+                print "%s|%s|%s" % ( 
+                    row['question_date'] ,                   
+                    row['question_details'][y]['minister_title'] , 
+                    row['question_details'][y]['minister_no_of_qtns'] ,
+                    )
                 y=y+1 
 
 
