@@ -24,8 +24,10 @@ class BusinessStatementParser(DocumentParser):
         qd_1 = question_date.strip().split('WEEK ENDING')[1]
         qd_2 = qd_1.split(',')[1]   
         qd_3 = qd_2.strip().split('-')
-        date_full = qd_3[0].replace('TH','').replace('ST','').replace('ND','').replace('RD','')
-        date_as_timestamp = datetime.strptime( date_full , "%d %B %Y" ).strftime("%Y-%m-%d") 
+        date_full_1 = qd_3[0].replace('TH','').replace('ST','').replace('ND','').replace('RD','').replace('\\s','')
+        qd_4 = date_full_1.split(' ')
+        date_full_1 = "%s-%s-%s" % ( qd_4[0], qd_4[1][:3] , qd_4[2] )
+        date_as_timestamp = datetime.strptime( date_full_1 , "%d-%b-%Y" ).strftime("%Y-%m-%d") 
         dt_format = date_as_timestamp.split("-")
         string_to_use_as_timestamp = "datetime.datetime(%s, %s, %s )"  % ( dt_format[0] , dt_format[1],dt_format[2] )                  
         return string_to_use_as_timestamp
