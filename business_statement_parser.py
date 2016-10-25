@@ -138,7 +138,6 @@ def main(argv):
         data = p.output()
         for row in data:
             len_of_question_details = len(row['question_details'])
-            print "Question date | Minister title | Number of questions"
             x=y=0
             while y<len(row['question_details']):
                 print "%s|%s|%s" % ( 
