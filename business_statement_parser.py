@@ -28,9 +28,10 @@ class BusinessStatementParser(DocumentParser):
         qd_4 = date_full_1.split(' ')
         date_full_1 = "%s-%s-%s" % ( qd_4[0], qd_4[1][:3] , qd_4[2] )
         date_as_timestamp = datetime.strptime( date_full_1 , "%d-%b-%Y" ).strftime("%Y-%m-%d") 
-        dt_format = date_as_timestamp.split("-")
-        string_to_use_as_timestamp = "datetime.datetime(%s, %s, %s )"  % ( dt_format[0] , dt_format[1],dt_format[2] )                  
-        return string_to_use_as_timestamp
+        #dt_format = date_as_timestamp.split("-")
+        #string_to_use_as_timestamp = "datetime.datetime(%s, %s, %s )"  % ( dt_format[0] , dt_format[1],dt_format[2] )                  
+        #return string_to_use_as_timestamp
+        return date_full_1
 
     @classmethod
     def questions_asked(cls, lines):
