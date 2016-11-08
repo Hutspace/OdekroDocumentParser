@@ -73,7 +73,8 @@ class DocumentParser(object):
 
     @classmethod
     def scan_line(cls, line):
-        line = line.encode('UTF-8')
+        line = line.encode('ascii', 'ignore')
+        line = line.encode('UTF-8', 'ignore')
         if not line.strip():
             return (cls.BLANK, '\n', None)
         for kind, pattern in cls.PATTERNS:
