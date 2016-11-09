@@ -13,13 +13,18 @@ class QuestionsParser(DocumentParser):
     KIND_ANSWER = 'answer'
     KIND_OTHER_HEADER = 'header'
 
-    QUESTION_HEADER_PATTERN = r'^(?:\d+\.)?\s*(NOTICE OF\s*|URGENT\s*)?QUESTION(S)?.*'
+    QUESTION_HEADER_PATTERN = r'^(?:\d+\.)?\s*(NOTICE OF|URGENT)*?\s*QUESTION'
     INTERROGATIVE = r'(?:how|when|what|if|why|where|which|whether|the)'
-    MINISTER_TITLE = r'(Minister\s*(?:for|of)\s*[A-Za-z]*\s*(?:and\s*[A-Za-z ]*)?)'
-    QUESTION_INTRO = r'To\s*ask\s*the\s*%s' % MINISTER_TITLE
-    # QUESTION_INTRO = r'To\s*ask\s*the\s*(Minister\s*for.*)'
+    # MINISTER_TITLE = r'(Minister\s*(?:for|of)\s*[A-Za-z]*\s*(?:and\s*[A-Za-z ]*)?)'
+
+    # MINISTER_TITLE = r'(?:[A-Za-z]*\s*[,A-zA-z ]*?\s*(?:and)?\s*[A-Za-z]*)'
+    # MINISTER_POST = r'(?:[A-Za-z, ]*)'
+    # QUESTION_INTRO = r'To\s*ask\s*the\s*(Minister\s*for\s*.*)\s*(%s)' % INTERROGATIVE
+
+    QUESTION_INTRO = r'(?:To\s*ask\s*the\s*.*Minister\s*for.*)'
+    QUESTION_START_PATTERN = r'^(\*\d+\.)?\s*(.*):\s*(%s\s*%s.*)' % (QUESTION_INTRO, INTERROGATIVE)
+
     QUESTION_INTRO_PARTIAL = r'^(\*\d+\.)?\s*(.*):\s*To\s*ask'
-    QUESTION_START_PATTERN = r'^(\*\d+\.)?\s*(.*):\s*%s\s*(%s.*)+' % (QUESTION_INTRO, INTERROGATIVE)
     # QUESTION_START_PATTERN = r'^(\*\d+\.)?\s*(.*):\s*To\s*ask\s*the\s*(Minister\s*for.*)\s*((?:how|when|what|if|why|where|which|whether).*)'
 
     ANSWERS_HEADER_PATTERN = r'^ANSWERS'
@@ -36,11 +41,12 @@ class QuestionsParser(DocumentParser):
         (KIND_QUESTION, QUESTION_START_PATTERN),
         (KIND_QUESTION_PARTIAL, QUESTION_INTRO_PARTIAL),
         (KIND_ANSWER, ANSWER_START_PATTERN),
+
         (KIND_OTHER_HEADER, OTHER_HEADER_PATTERN)
     )
 
     NORMALIZATION = [
-            (r'(To ask.*)\n\n', r'\1 ')
+            # (r'(To ask.*)\n\n', r'\1 ')
     ]
 
     def __init__(self, content):
@@ -53,9 +59,9 @@ class QuestionsParser(DocumentParser):
             nextkind, nextline, nextmatch = remaining_lines.pop(0)
             if nextkind == cls.LINE:
                 reconstructed = ' '.join([reconstructed, nextline])
-            if nextkind in [cls.KIND_QUESTION_PARTIAL, cls.ANSWERS_HEADER_PATTERN, cls.KIND_OTHER_HEADER]:
+            if nextkind in [cls.KIND_QUESTION_PARTIAL, cls.KIND_ANSWERS_SECTION, cls.KIND_OTHER_HEADER]:
                 break
-        print cls.scan_line(reconstructed)
+        # print cls.scan_line(reconstructed)
         remaining_lines.insert(0, cls.scan_line(reconstructed))
 
     @classmethod
@@ -71,10 +77,13 @@ class QuestionsParser(DocumentParser):
             num += 1
 
             if (thekind == cls.DATE):
-                timestamp = date(int(match.group(4)),
-                                 cls.MONTHS[match.group(3).lower()[:3]],
-                                 int(match.group(2)))
-                timestamp = datetime.combine(timestamp, datetime.min.time())
+                try:
+                    timestamp = date(int(match.group(4)),
+                                     cls.MONTHS[match.group(3).lower()[:3]],
+                                     int(match.group(2)))
+                    timestamp = datetime.combine(timestamp, datetime.min.time())
+                except:
+                    pass
 
             if not valid and (thekind == cls.BLANK or thekind == cls.PAGE_HEADER):
                 continue
@@ -90,37 +99,21 @@ class QuestionsParser(DocumentParser):
                 else:
                     qid = 'urg'
                 source = match.group(2)
-                target = match.group(3)
-                query = match.group(4)
+                query = match.group(3)
+                # query = match.group(4)
                 parsed_question = dict(ref=qid,
-                                       timestamp_question=timestamp,
-                                       timestamp_answer=None,
+                                       timestamp=timestamp,
                                        source=source,
-                                       target=target,
                                        question=query,
-                                       answer=None)
-                print parsed_question
+                                       answer='')
+                # print parsed_question
                 parsed.append(parsed_question)
 
-            if valid and thekind == cls.KIND_QUESTION_PARTIAL:
-                # new_line = line
-                # while(len(lines) > 0):
-                #     nextkind, nextline, nextmatch = lines.pop(0)
-                #     if nextkind == cls.LINE:
-                #         new_line = ' '.join([new_line, nextline])
-                #     if nextkind in [cls.KIND_QUESTION_PARTIAL, cls.ANSWERS_HEADER_PATTERN, cls.KIND_OTHER_HEADER]:
-                #         m = re.match(cls.QUESTION_START_PATTERN, new_line)
-                #         print new_line
-                #         print m.group(1)
-                #         print m.group(2)
-                #         print m.group(3)
-                #         print m.group(4)
-                #         lines.insert(0, (cls.KIND_QUESTION, new_line, m))
-                #         break
+            elif valid and thekind == cls.KIND_QUESTION_PARTIAL:
                 cls.reconstruct_question(line, lines)
                 continue
 
-            if valid and thekind == cls.KIND_ANSWER:
+            elif valid and thekind == cls.KIND_ANSWER:
                 qid = ''
                 if match.group(1) is not None:
                     qid = match.group(1).replace('*', '').replace('.', '')
@@ -128,15 +121,23 @@ class QuestionsParser(DocumentParser):
                     qid = 'urg'
                 response = match.group(2)
                 parsed_response = dict(ref=qid,
-                                       timestamp_answer=timestamp,
+                                       source='',
+                                       timestamp=timestamp,
+                                       question='',
                                        answer=response)
-                print parsed_response
+
+                # print parsed_response
                 parsed.append(parsed_response)
 
             # continued question/answer append
-            if valid and thekind == cls.LINE:
-                pass
-                # print '{0}: {1} '.format(kind, str(line))
+            elif valid and thekind == cls.LINE and len(parsed) > 0:
+                last_added = parsed.pop()
+                if kind == cls.KIND_ANSWERS_SECTION:
+                    last_added['answer'] = ' '.join([last_added['answer'], line])
+                if kind == cls.KIND_QUESTIONS_SECTION:
+                    # print '{0}: {1} '.format(kind, str(line))
+                    pass
+                parsed.append(last_added)
 
             if valid and (kind == cls.KIND_QUESTIONS_SECTION) and (thekind == cls.KIND_ANSWERS_SECTION):
                 valid = False
@@ -144,19 +145,21 @@ class QuestionsParser(DocumentParser):
             if valid and (kind == cls.KIND_ANSWERS_SECTION) and (thekind == cls.KIND_QUESTIONS_SECTION):
                 # print 'IGNORE Kind: {0} - {1}'.format(thekind, line)
                 valid = False
-            # lines.insert(0, (thekind, line, match))
-            # break
+
+            if valid and thekind == cls.KIND_OTHER_HEADER:
+                valid = False
         return parsed
 
     @classmethod
     def parse_body(cls, lines):
-        entries = []
         questions = cls.parse_qa(cls.KIND_QUESTIONS_SECTION, list(lines))
-        # answers = parse_qa(cls.KIND_ANSWERS_SECTION, list(lines))
-        return entries
+        answers = cls.parse_qa(cls.KIND_ANSWERS_SECTION, list(lines))
+        return questions + answers
 
 
 def main(argv):
+    fields = ['timestamp', 'ref', 'question', 'source', 'answer']
+    print '|'.join(fields)
     for filename in sys.stdin:
         handle = open(filename.strip(), 'r')
         content = handle.read()
@@ -164,8 +167,9 @@ def main(argv):
 
         p = QuestionsParser(content)
         p.parse()
-        print p.output()
-
+        data = p.output()
+        for row in data:
+            print '|'.join([str(row[label]) for label in fields])
 
 if __name__ == '__main__':
     main(sys.argv)
