@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import sys
 import re
 from datetime import datetime
@@ -7,9 +9,43 @@ from parser import DocumentParser
 
 class LoanParser(DocumentParser):
     SELECTION_MARKER = r".*(Loan Facility|Loan Agreement|Financial Agreement).*"
+    ESCAPE_MARKERS = r".*(the date on which notice of the motion is given|Date:|Venue:).*"
+
 
     def __init__(self, content):
         super(LoanParser, self).__init__(content)
+
+    @classmethod
+    def filter_out_parties_to_agreement(self,line_content):
+        all_parties1 = line_content.split('between',1)[-1]
+        if len(all_parties1)>1:
+            all_parties = all_parties1.split('and',1)
+            party_1 = all_parties[0]
+            party_2 = all_parties[1].split('for an amount')[0].split('—',1)[0]
+
+            return (party_1 , party_2)
+        else:
+            return ( '', '' )
+
+
+    @classmethod
+    def filter_out_loan_purpose(self,line_content):        
+        loan_details = line_content.split('to finance',1)
+        if len(loan_details)>1:
+            return loan_details[1]
+        else:
+            #loan_details[0] 
+            return ''
+
+    @classmethod
+    def filter_out_loan_amount(self,line_content):        
+        loan_details = line_content.split('amounting to',1)
+        if len(loan_details)>1:
+            amount = loan_details[1].split('between',1)[0]
+            return amount
+        else:
+            #loan_details[0] 
+            return ''
 
 
     @classmethod
@@ -20,8 +56,8 @@ class LoanParser(DocumentParser):
 
         party_1  = ''
         party_2 = ''
-        activity = ''
-        amount = '';6
+        purpose = ''
+        amount = '';
 
         while len(lines):
             thekind, line, match = lines.pop(0)
@@ -31,6 +67,12 @@ class LoanParser(DocumentParser):
                 continue
 
             matchObjectForLoan = re.match( cls.SELECTION_MARKER , line_content)
+            matchObjectForEscapeMarkers = re.match( cls.ESCAPE_MARKERS , line_content)
+
+            if matchObjectForEscapeMarkers:
+                # START PARSING SECTION
+                valid = False
+                continue
 
             if matchObjectForLoan:
                 # START PARSING SECTION
@@ -42,13 +84,17 @@ class LoanParser(DocumentParser):
 
 
             if valid:
-                #matchObjectForCommitteeName = re.match( cls.COMMITTEE_NAME_FORMAT , line_content)
-                #matchObjectForCommitteeDateTimeVenueAndAgenda = re.match( r"Date: *" , line_content)
 
                 if matchObjectForLoan:
-                    loan_details = line_content.split(' ')
-                    print loan_details
 
+                    all_parties = cls.filter_out_parties_to_agreement(line_content)
+                    party_1 = all_parties[0]
+                    party_2 = all_parties[1]
+
+
+                    purpose = cls.filter_out_loan_purpose(line_content)
+
+                    amount = cls.filter_out_loan_amount(line_content)
 
 
                 if (thekind == cls.LINE or thekind == cls.BLANK or thekind == cls.PAGE_HEADER):
@@ -56,6 +102,7 @@ class LoanParser(DocumentParser):
 
             else:
                 # fallout
+                valid = False
                 pass
 
 
@@ -66,7 +113,7 @@ class LoanParser(DocumentParser):
             loans.append(dict(party_1=party_1,
                             party_2=party_2,
                             amount=amount,
-                            activity=activity
+                            purpose=purpose
                             ))
 
         return loans
@@ -84,7 +131,7 @@ class LoanParser(DocumentParser):
 
 
 def main(argv):
-    print 'Party 1 | Party 2 | Amount | Activity '
+    print 'Party 1 | Party 2 | Amount | Purpose '
     for filename in sys.stdin:
         handle = open(filename.strip(), 'r')
         content = handle.read()
@@ -94,10 +141,10 @@ def main(argv):
         p.parse()
         data = p.output()
         for row in data:
-            print '%s|%s|%s|%s|%s' % (row['party_1'],
+            print '%s|%s|%s|%s' % (row['party_1'],
                                       row['party_2'],
                                       row['amount'],
-                                      row['activity'])
+                                      row['purpose'])
 
 
 if __name__ == "__main__":
