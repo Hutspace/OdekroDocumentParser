@@ -9,7 +9,7 @@ from parser import DocumentParser
 
 class LoanParser(DocumentParser):
     SELECTION_MARKER = r".*(Loan Facility|Loan Agreement|Financial Agreement).*"
-    ESCAPE_MARKERS = r".*(the date on which notice of the motion is given|Date:|Venue:).*"
+    ESCAPE_MARKERS = r".*(the date on which notice of the motion is given|Date:|Venue:|met on ).*"
 
 
     def __init__(self, content):
@@ -17,19 +17,24 @@ class LoanParser(DocumentParser):
 
     @classmethod
     def filter_out_parties_to_agreement(self,line_content):
+        line_content = line_content.replace(',',' ')
         all_parties1 = line_content.split('between',1)[-1]
         if len(all_parties1)>1:
             all_parties = all_parties1.split('and',1)
             party_1 = all_parties[0]
-            party_2 = all_parties[1].split('for an amount')[0].split('—',1)[0]
-
+            if len(all_parties)>1:
+                party_2 = all_parties[1].split('for an amount')[0].split('—',1)[0]
+            else:
+                party_2 = ''
+                
             return (party_1 , party_2)
         else:
             return ( '', '' )
 
 
     @classmethod
-    def filter_out_loan_purpose(self,line_content):        
+    def filter_out_loan_purpose(self,line_content): 
+        line_content = line_content.replace(',',' ')           
         loan_details = line_content.split('to finance',1)
         if len(loan_details)>1:
             return loan_details[1]
@@ -38,14 +43,38 @@ class LoanParser(DocumentParser):
             return ''
 
     @classmethod
-    def filter_out_loan_amount(self,line_content):        
+    def filter_out_loan_purpose_via_party_2(self,line_content): 
+        line_content = line_content.replace(',',' ')
+        all_parties1 = line_content.split('between',1)[-1]
+        if len(all_parties1)>1:
+            all_parties = all_parties1.split('and',1)
+            print all_parties 
+            if len(all_parties)>1:
+                purpose = all_parties[1].split('for an amount')[0].split('—',1)[1]
+               #party_2 = all_parties[1].split('for an amount')[0].split('—',1)[0]
+            else:
+                purpose  = ''
+
+            return purpose
+        else:
+            return ''
+
+    @classmethod
+    def filter_out_loan_amount(self,line_content):  
+        line_content = line_content.replace(',',' ')          
         loan_details = line_content.split('amounting to',1)
         if len(loan_details)>1:
             amount = loan_details[1].split('between',1)[0]
             return amount
-        else:
+        else:  
+            loan_details1 = line_content.split('an amount of',1)
+            if len(loan_details1)>1:
+                loan_details2  =loan_details1[1]
+                amount = loan_details2.split('to finance',1)[0]         
+            else:
+                amount = ''
             #loan_details[0] 
-            return ''
+            return amount
 
 
     @classmethod
@@ -78,9 +107,6 @@ class LoanParser(DocumentParser):
                 # START PARSING SECTION
                 valid = True
                 pass
-            #else:
-            #    valid = False    
-            #    continue
 
 
             if valid:
@@ -93,23 +119,21 @@ class LoanParser(DocumentParser):
 
 
                     purpose = cls.filter_out_loan_purpose(line_content)
-
                     amount = cls.filter_out_loan_amount(line_content)
-
 
                 if (thekind == cls.LINE or thekind == cls.BLANK or thekind == cls.PAGE_HEADER):
                     continue
 
             else:
                 # fallout
-                valid = False
-                pass
+                continue
 
 
             if len(loans)==0:
                 continue
 
-        if party_1!='' and  party_2!='':
+        if party_1!='' and  party_2!='' and amount!='' and purpose!='':
+
             loans.append(dict(party_1=party_1,
                             party_2=party_2,
                             amount=amount,
