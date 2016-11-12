@@ -26,7 +26,8 @@ class AttendanceParser(DocumentParser):
     )
 
     NORMALIZATIONS = [
-        (r'\n\n(%s)' % VP_CONSTITUENCY, r'\1')
+        (r'\n\n(%s)' % VP_CONSTITUENCY, r'\1'),
+        (r'\n(%s)' % VP_CONSTITUENCY, r'\1')
     ]
 
     def __init__(self, content):
