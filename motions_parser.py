@@ -8,22 +8,37 @@ from parser import DocumentParser
 class MotionsParser(DocumentParser):
     KIND_MOTION_TITLE = 'motion'
     KIND_MOTION_PROPOSERS = 'proposers'
+    KIND_MOTION_PROPOSERS_PARTIAL = 'proposers partial'
     KIND_MOTION_RESOLUTION = 'resolution'
+    KIND_MOTION_RESOLUTION2 = 'resolution2'
 
     MOTION = r'^\d+\.\s*MOTION'
-    MOTION_MOVED_BY = r'\(Moved\s*by\s*(.*)\s*and\s*seconded\s*by\s*(.*)\)'
+    MOTION_MOVED_BY = r'\(Moved\s*(?:on|by)\s*(.*)\s*and\s*seconded\s*by\s*(.*)\)'
+    MOTION_MOVER = r'\s*\(((?:Minister|Chairman).* )\)'
+    MOTION_MOVED_PARTIAL = r'\(Moved\s*(?:on|by).*'
     RESOLUTION = r'\d+\.\s*The\s*House\s*accordingly\s*(.*)'
+    RESOLUTION2 = r'\s*THIS HONOURABLE HOUSE HEREBY RESOLVE AS FOLLOWS:\s*'
+    MOTION_AGREED = r'.*Question put and (motion .*)'
 
     CUSTOM_PATTERNS = (
         (KIND_MOTION_TITLE, MOTION),
         (KIND_MOTION_PROPOSERS, MOTION_MOVED_BY),
+        (KIND_MOTION_PROPOSERS, MOTION_MOVER),
+        (KIND_MOTION_PROPOSERS_PARTIAL, MOTION_MOVED_PARTIAL),
         (KIND_MOTION_RESOLUTION, RESOLUTION),
+        (KIND_MOTION_RESOLUTION2, RESOLUTION2),
+        (KIND_MOTION_RESOLUTION, MOTION_AGREED),
     )
 
     NORMALIZATIONS = []
 
     def __init__(self, content):
         super(MotionsParser, self).__init__(content)
+
+    @classmethod
+    def adjust_parsed(cls, motion):
+
+        pass
 
     @classmethod
     def parse_motions(cls, lines):
@@ -36,6 +51,7 @@ class MotionsParser(DocumentParser):
 
         while len(lines):
             thekind, line, match = lines.pop(0)
+            # print thekind, line
             if timestamp is None and thekind == cls.DATE:
                 timestamp = date(int(match.group(4)),
                                  cls.MONTHS[match.group(3).lower()[:3]],
@@ -43,7 +59,9 @@ class MotionsParser(DocumentParser):
                 timestamp = datetime.combine(timestamp, datetime.min.time())
 
             if thekind == cls.KIND_MOTION_TITLE:
+                # print 'MOTION'
                 if valid:
+                    cls.adjust_parsed(motion)
                     motions.append(motion)
 
                 motion = dict(date=timestamp,
@@ -56,8 +74,8 @@ class MotionsParser(DocumentParser):
                 continue
 
             if valid:
-                # print thekind, line
                 if thekind == cls.LINE and not pastProposers:
+                    # print thekind, line
                     motion['motion'] = ' '.join([motion['motion'], line])
 
                 if thekind == cls.KIND_MOTION_PROPOSERS:
@@ -66,6 +84,7 @@ class MotionsParser(DocumentParser):
                     pastProposers = True
 
                 if thekind == cls.KIND_MOTION_RESOLUTION:
+                    # print thekind, line
                     motion['resolution'] = match.group(1)
                     # DONE PARSING MOION
                     motions.append(motion)
@@ -78,10 +97,6 @@ class MotionsParser(DocumentParser):
     def parse_body(cls, lines):
         return cls.parse_motions(lines)
 
-    @classmethod
-    def normalise_line_breaks(cls, content):
-        return content
-
 
 def main(argv):
     fields = ['date',
@@ -92,6 +107,7 @@ def main(argv):
               ]
     print '|'.join(fields)
     for filename in sys.stdin:
+        # print filename
         handle = open(filename.strip(), 'r')
         content = handle.read()
         handle.close()
